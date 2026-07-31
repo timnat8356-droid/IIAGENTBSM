@@ -8,7 +8,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 
 from . import config
-from .handlers import router, build_text_draft, send_text_request
+from .handlers import router, send_rubric_prompt
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
@@ -19,14 +19,11 @@ dp.include_router(router)
 
 
 async def scheduled_generate():
-    log.info("Плановая генерация текста поста")
+    log.info("Плановый запрос рубрики поста")
     try:
-        draft = await build_text_draft()
+        await send_rubric_prompt(bot, config.OWNER_CHAT_ID)
     except Exception:
-        log.exception("Плановая генерация не удалась")
-        await bot.send_message(config.OWNER_CHAT_ID, "⚠️ Не удалось сгенерировать плановый черновик поста, проверьте логи.")
-        return
-    await send_text_request(bot, config.OWNER_CHAT_ID, draft)
+        log.exception("Не удалось отправить плановое сообщение с рубриками")
 
 
 async def on_startup(app: web.Application):
