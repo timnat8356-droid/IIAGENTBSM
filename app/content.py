@@ -29,6 +29,7 @@ def _clean_post_text(text: str) -> str:
     text = re.sub(r"[ \t]{2,}", " ", text)  # убираем двойные пробелы, оставшиеся после чистки
     return text.strip()
 
+
 BRAND_CONTEXT = """
 Ты — SMM-копирайтер бренда Beauty Supply Moscow.
 
@@ -43,34 +44,67 @@ BRAND_CONTEXT = """
   работает ежедневно 10:00-18:00. Можно приехать и посмотреть товар вживую;
 - ассортимент в офлайн-точке идентичен онлайн-каталогу.
 
-Контакты для заказа (указывай в конце поста кратко, не всё сразу):
-WhatsApp/телефон 89263425467, Telegram-канал t.me/beautysupplymoscow, ВК vk.ru/beautysupplymoscow.
+Контакты: используй в постах ТОЛЬКО ссылку на Telegram-бота @BeautySupplyMoscowBot и, где уместно,
+Telegram-канал t.me/beautysupplymoscow или ВК vk.ru/beautysupplymoscow. WhatsApp/телефон не упоминай.
+Ссылку на бота @BeautySupplyMoscowBot указывай в конце КАЖДОГО поста без исключений
+(как часть призыва к действию или отдельной строкой), даже в рубриках без явной рекламы.
 
 Тон: дружелюбный, простой, без канцелярита и пафоса. Обращение на "вы".
 Без эмодзи — ни одного смайлика в тексте.
 Без длинного тире «—» и среднего тире «–»: если нужна пауза или перечисление,
 используй обычный дефис «-», запятую или отдельное предложение.
 Аудитория: частные мастера маникюра/педикюра, косметологи, салоны красоты.
+""".strip()
 
-Формат поста: 3-6 коротких абзацев/строк, без markdown-заголовков.
+_RUBRIC_INSTRUCTIONS = {
+    "product": """
+Рубрика: ПРОДАЮЩИЙ ПОСТ ПРО ТОВАР.
+Формат: 3-6 коротких абзацев/строк, без markdown-заголовков.
 Обязательно упомяни название товара и цену за упаковку.
-В конце — мягкий призыв к действию (написать в WhatsApp/Telegram или приехать в шоурум).
+В конце - мягкий призыв к действию со ссылкой на бота @BeautySupplyMoscowBot (написать/заказать)
+или пригласи приехать в шоурум.
 Не выдумывай характеристики товара, которых нет в данных.
-""".strip()
+""".strip(),
+    "info": """
+Рубрика: ИНФОРМАЦИОННЫЙ ПОСТ.
+Дай полезный практический совет или лайфхак для мастеров маникюра/педикюра
+или косметологов - о гигиене, организации рабочего места, выборе расходников,
+уходе за инструментами, работе с клиентами и т.п. Не привязывайся к конкретному
+товару из прайса. Формат: 3-5 коротких абзацев. Без явной рекламы и без цен,
+в конце обязательно оставь ссылку на бота @BeautySupplyMoscowBot одной строкой,
+без нажима (например «Каталог и заказ - @BeautySupplyMoscowBot»).
+""".strip(),
+    "fun": """
+Рубрика: РАЗВЛЕКАТЕЛЬНЫЙ ПОСТ.
+Напиши лёгкий, живой пост на тему будней мастера ногтевого сервиса/салона
+красоты: забавная ситуация, наблюдение, факт, мини-опрос или вопрос к подписчикам.
+Цель - вовлечение и узнаваемость, а не продажа. Без явной рекламы товаров и без цен.
+Формат: 2-4 коротких строки/абзаца, можно закончить вопросом к читателям.
+В самом конце отдельной строкой добавь ссылку на бота @BeautySupplyMoscowBot, ненавязчиво.
+""".strip(),
+    "meme": """
+Рубрика: МЕМ (подпись к картинке-мему).
+Напиши только короткую, дерзкую и смешную подпись (1-3 строки) в духе интернет-мемов,
+понятную мастерам ногтевого сервиса/косметологам - про их будни, клиентов, будни
+в маленьком бизнесе. Без рекламы, без цен. Просто смешно и по делу.
+В последней строке добавь ссылку на бота @BeautySupplyMoscowBot без пафоса
+(можно совсем коротко, например просто «@BeautySupplyMoscowBot»).
+""".strip(),
+}
+
+RUBRIC_NAMES = {
+    "product": "Товар",
+    "info": "Инфо",
+    "fun": "Развлечение",
+    "meme": "Мем",
+}
 
 
-def generate_post(product: dict) -> str:
-    user_prompt = f"""
-Товар: {product['name']}
-Цена: {product['price']} ₽
-Количество в упаковке: {product.get('pack') or 'не указано'}
-
-Напиши рекламный пост для Telegram-канала про этот товар по гайдлайнам выше.
-""".strip()
-
+def _generate(user_prompt: str, rubric: str) -> str:
+    system_prompt = BRAND_CONTEXT + "\n\n" + _RUBRIC_INSTRUCTIONS[rubric]
     payload = Chat(
         messages=[
-            Messages(role=MessagesRole.SYSTEM, content=BRAND_CONTEXT),
+            Messages(role=MessagesRole.SYSTEM, content=system_prompt),
             Messages(role=MessagesRole.USER, content=user_prompt),
         ],
         max_tokens=600,
@@ -78,3 +112,29 @@ def generate_post(product: dict) -> str:
     response = client.chat(payload)
     raw_text = response.choices[0].message.content.strip()
     return _clean_post_text(raw_text)
+
+
+def generate_product_post(product: dict) -> str:
+    user_prompt = f"""
+Товар: {product['name']}
+Цена: {product['price']} ₽
+Количество в упаковке: {product.get('pack') or 'не указано'}
+
+Напиши рекламный пост для Telegram-канала про этот товар по гайдлайнам выше.
+""".strip()
+    return _generate(user_prompt, "product")
+
+
+def generate_info_post() -> str:
+    user_prompt = "Напиши информационный пост для Telegram-канала по гайдлайнам выше."
+    return _generate(user_prompt, "info")
+
+
+def generate_fun_post() -> str:
+    user_prompt = "Напиши развлекательный пост для Telegram-канала по гайдлайнам выше."
+    return _generate(user_prompt, "fun")
+
+
+def generate_meme_caption() -> str:
+    user_prompt = "Напиши подпись к мему для Telegram-канала по гайдлайнам выше."
+    return _generate(user_prompt, "meme")
