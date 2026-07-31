@@ -7,6 +7,7 @@ class Draft:
     id: str
     text: str
     product_name: str
+    rubric: str = "product"              # "product" | "info" | "fun" | "meme"
     status: str = "awaiting_photo"       # "awaiting_photo" | "ready"
     photo_file_id: str | None = None
     request_message_id: int | None = None  # id сообщения-запроса фото (для сопоставления по reply)
@@ -20,8 +21,8 @@ class State:
     recently_posted: set[str] = field(default_factory=set)
     MAX_RECENT: int = 20
 
-    def new_draft(self, text: str, product_name: str) -> Draft:
-        draft = Draft(id=uuid.uuid4().hex[:8], text=text, product_name=product_name)
+    def new_draft(self, text: str, product_name: str, rubric: str = "product") -> Draft:
+        draft = Draft(id=uuid.uuid4().hex[:8], text=text, product_name=product_name, rubric=rubric)
         self.drafts[draft.id] = draft
         self.awaiting_photo_order.append(draft.id)
         return draft
