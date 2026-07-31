@@ -11,9 +11,9 @@ WEBHOOK_PATH = "/webhook"
 WEBHOOK_URL = f"{WEBHOOK_HOST}{WEBHOOK_PATH}"
 PORT = int(os.environ.get("PORT", 10000))
 
-# --- DeepSeek API ---
-DEEPSEEK_API_KEY = os.environ["DEEPSEEK_API_KEY"]
-DEEPSEEK_MODEL = os.environ.get("DEEPSEEK_MODEL", "deepseek-v4-flash")
+# --- GigaChat API ---
+GIGACHAT_CREDENTIALS = os.environ["GIGACHAT_CREDENTIALS"]   # Authorization key из личного кабинета Sber Developers
+GIGACHAT_MODEL = os.environ.get("GIGACHAT_MODEL", "GigaChat-2")
 
 # --- Расписание автогенерации черновика (МСК) ---
 # Список часов через запятую, напр. "11,17" — пришлёт черновик дважды в день
