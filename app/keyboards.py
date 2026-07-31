@@ -1,6 +1,22 @@
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 
+def rubric_keyboard() -> InlineKeyboardMarkup:
+    """Клавиатура выбора рубрики перед генерацией текста."""
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(text="🛍 Товар", callback_data="rubric:product"),
+                InlineKeyboardButton(text="💡 Инфо", callback_data="rubric:info"),
+            ],
+            [
+                InlineKeyboardButton(text="🎉 Развлечение", callback_data="rubric:fun"),
+                InlineKeyboardButton(text="😄 Мем", callback_data="rubric:meme"),
+            ],
+        ]
+    )
+
+
 def draft_keyboard(draft_id: str) -> InlineKeyboardMarkup:
     """Клавиатура для готового черновика (текст + фото)."""
     return InlineKeyboardMarkup(
@@ -22,7 +38,7 @@ def text_only_keyboard(draft_id: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
-                InlineKeyboardButton(text="🔄 Другой товар", callback_data=f"draft:reroll:{draft_id}"),
+                InlineKeyboardButton(text="🔄 Другой вариант", callback_data=f"draft:reroll:{draft_id}"),
                 InlineKeyboardButton(text="❌ Отклонить", callback_data=f"draft:reject:{draft_id}"),
             ],
         ]
