@@ -1,4 +1,3 @@
-cat > /home/claude/bsm-content-bot/app/handlers.py << 'PYEOF'
 import logging
 from aiogram import Router, F
 from aiogram.filters import Command
@@ -225,5 +224,3 @@ async def handle_edit_text(message: Message):
         if draft.id not in state.awaiting_photo_order:
             state.awaiting_photo_order.append(draft.id)
         await send_text_request(message.bot, message.chat.id, draft)
-PYEOF
-echo written
