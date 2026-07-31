@@ -1,10 +1,11 @@
+cat > /home/claude/bsm-content-bot/app/handlers.py << 'PYEOF'
 import logging
 from aiogram import Router, F
 from aiogram.filters import Command
 from aiogram.types import Message, CallbackQuery
 
 from . import config, content, catalog
-from .keyboards import draft_keyboard, text_only_keyboard
+from .keyboards import draft_keyboard, text_only_keyboard, rubric_keyboard
 from .storage import state, Draft
 
 router = Router()
@@ -22,10 +23,23 @@ def _owner_only(message_or_cb) -> bool:
     return chat_id == config.OWNER_CHAT_ID
 
 
-async def build_text_draft() -> Draft:
-    product = catalog.pick_random_product(exclude_names=state.recently_posted)
-    text = content.generate_post(product)
-    return state.new_draft(text=text, product_name=product["name"])
+async def build_text_draft(rubric: str) -> Draft:
+    if rubric == "product":
+        product = catalog.pick_random_product(exclude_names=state.recently_posted)
+        text = content.generate_product_post(product)
+        product_name = product["name"]
+    elif rubric == "info":
+        text = content.generate_info_post()
+        product_name = ""
+    elif rubric == "fun":
+        text = content.generate_fun_post()
+        product_name = ""
+    elif rubric == "meme":
+        text = content.generate_meme_caption()
+        product_name = ""
+    else:
+        raise ValueError(f"Неизвестная рубрика: {rubric}")
+    return state.new_draft(text=text, product_name=product_name, rubric=rubric)
 
 
 async def send_text_request(bot, chat_id: int, draft: Draft):
@@ -46,16 +60,23 @@ async def send_ready_draft(bot, chat_id: int, draft: Draft):
     )
 
 
+async def send_rubric_prompt(bot, chat_id: int):
+    await bot.send_message(
+        chat_id=chat_id,
+        text="Какую рубрику готовим?",
+        reply_markup=rubric_keyboard(),
+    )
+
+
 @router.message(Command("start"))
 async def cmd_start(message: Message):
     if not _owner_only(message):
         return
     await message.answer(
         "Привет! Я контент-бот Beauty Supply Moscow.\n\n"
-        "/generate — сгенерировать черновик текста поста прямо сейчас.\n"
-        "После этого пришлите мне фото для поста в личку — соберу черновик с кнопками.\n"
-        "Каждый день (может быть несколько раз) буду присылать текст автоматически "
-        "и ждать от вас фото."
+        "/generate — выбрать рубрику и подготовить пост прямо сейчас.\n"
+        "После генерации текста пришлите мне фото для поста в личку — соберу черновик с кнопками.\n"
+        "Каждый день (может быть несколько раз) буду присылать выбор рубрики автоматически."
     )
 
 
@@ -63,14 +84,24 @@ async def cmd_start(message: Message):
 async def cmd_generate(message: Message):
     if not _owner_only(message):
         return
-    await message.answer("Готовлю текст поста…")
+    await send_rubric_prompt(message.bot, message.chat.id)
+
+
+@router.callback_query(F.data.startswith("rubric:"))
+async def cb_rubric(callback: CallbackQuery):
+    if not _owner_only(callback):
+        return await callback.answer()
+    rubric = callback.data.split(":", 1)[1]
+    await callback.answer("Готовлю текст…")
     try:
-        draft = await build_text_draft()
+        draft = await build_text_draft(rubric)
     except Exception as e:
         log.exception("Ошибка генерации черновика")
-        await message.answer(f"Не получилось сгенерировать черновик: {e}")
+        await callback.message.answer(f"Не получилось сгенерировать черновик: {e}")
         return
-    await send_text_request(message.bot, message.chat.id, draft)
+    rubric_label = content.RUBRIC_NAMES.get(rubric, rubric)
+    await callback.message.edit_text(text=f"Рубрика: {rubric_label}. Готовлю черновик ниже ⬇️")
+    await send_text_request(callback.bot, callback.message.chat.id, draft)
 
 
 @router.message(F.photo)
@@ -102,7 +133,8 @@ async def cb_publish(callback: CallbackQuery):
         photo=draft.photo_file_id,
         caption=draft.text,
     )
-    state.remember(draft.product_name)
+    if draft.product_name:
+        state.remember(draft.product_name)
     state.drafts.pop(draft_id, None)
     await callback.message.edit_caption(caption=draft.text + "\n\n✅ Опубликовано в канал")
     await callback.answer("Опубликовано!")
@@ -128,12 +160,13 @@ async def cb_reroll(callback: CallbackQuery):
     if not _owner_only(callback):
         return await callback.answer()
     draft_id = callback.data.split(":", 2)[2]
-    state.drafts.pop(draft_id, None)
+    old_draft = state.drafts.pop(draft_id, None)
     if draft_id in state.awaiting_photo_order:
         state.awaiting_photo_order.remove(draft_id)
+    rubric = old_draft.rubric if old_draft else "product"
     await callback.answer("Готовлю новый вариант…")
     try:
-        new_draft = await build_text_draft()
+        new_draft = await build_text_draft(rubric)
     except Exception as e:
         log.exception("Ошибка перегенерации")
         await callback.message.answer(f"Не получилось сгенерировать черновик: {e}")
@@ -192,3 +225,5 @@ async def handle_edit_text(message: Message):
         if draft.id not in state.awaiting_photo_order:
             state.awaiting_photo_order.append(draft.id)
         await send_text_request(message.bot, message.chat.id, draft)
+PYEOF
+echo written
