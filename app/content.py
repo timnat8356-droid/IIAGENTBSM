@@ -1,8 +1,8 @@
 import re
-import anthropic
+from openai import OpenAI
 from . import config
 
-client = anthropic.Anthropic(api_key=config.ANTHROPIC_API_KEY)
+client = OpenAI(api_key=config.DEEPSEEK_API_KEY, base_url="https://api.deepseek.com")
 
 _EMOJI_PATTERN = re.compile(
     "["
@@ -62,13 +62,13 @@ def generate_post(product: dict) -> str:
 Напиши рекламный пост для Telegram-канала про этот товар по гайдлайнам выше.
 """.strip()
 
-    message = client.messages.create(
-        model=config.CLAUDE_MODEL,
+    response = client.chat.completions.create(
+        model=config.DEEPSEEK_MODEL,
         max_tokens=600,
-        system=BRAND_CONTEXT,
-        messages=[{"role": "user", "content": user_prompt}],
+        messages=[
+            {"role": "system", "content": BRAND_CONTEXT},
+            {"role": "user", "content": user_prompt},
+        ],
     )
-    raw_text = "".join(
-        block.text for block in message.content if block.type == "text"
-    ).strip()
+    raw_text = response.choices[0].message.content.strip()
     return _clean_post_text(raw_text)
