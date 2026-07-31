@@ -1,8 +1,14 @@
 import re
-from openai import OpenAI
+from gigachat import GigaChat
+from gigachat.models import Chat, Messages, MessagesRole
 from . import config
 
-client = OpenAI(api_key=config.DEEPSEEK_API_KEY, base_url="https://api.deepseek.com")
+client = GigaChat(
+    credentials=config.GIGACHAT_CREDENTIALS,
+    scope="GIGACHAT_API_PERS",       # тариф для физлиц (бесплатный лимит 1 млн токенов/мес)
+    model=config.GIGACHAT_MODEL,
+    verify_ssl_certs=False,           # без установки российского корневого сертификата Минцифры
+)
 
 _EMOJI_PATTERN = re.compile(
     "["
@@ -62,13 +68,13 @@ def generate_post(product: dict) -> str:
 Напиши рекламный пост для Telegram-канала про этот товар по гайдлайнам выше.
 """.strip()
 
-    response = client.chat.completions.create(
-        model=config.DEEPSEEK_MODEL,
-        max_tokens=600,
+    payload = Chat(
         messages=[
-            {"role": "system", "content": BRAND_CONTEXT},
-            {"role": "user", "content": user_prompt},
+            Messages(role=MessagesRole.SYSTEM, content=BRAND_CONTEXT),
+            Messages(role=MessagesRole.USER, content=user_prompt),
         ],
+        max_tokens=600,
     )
+    response = client.chat(payload)
     raw_text = response.choices[0].message.content.strip()
     return _clean_post_text(raw_text)
