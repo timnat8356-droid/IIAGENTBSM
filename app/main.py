@@ -45,7 +45,7 @@ async def on_startup(app: web.Application):
 
 
 async def on_shutdown(app: web.Application):
-    await bot.delete_webhook()
+    await bot.session.close()
 
 
 def create_app() -> web.Application:
